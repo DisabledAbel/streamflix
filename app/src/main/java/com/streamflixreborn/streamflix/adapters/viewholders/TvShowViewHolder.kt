@@ -628,6 +628,11 @@ class TvShowViewHolder(
             isVisible = !text.isNullOrEmpty()
         }
 
+        binding.tvTvShowContentRating.apply {
+            text = tvShow.contentRating?.certification
+            isVisible = !text.isNullOrBlank()
+        }
+
         binding.tvTvShowReleased.apply {
             text = tvShow.released?.format("yyyy")
             isVisible = !text.isNullOrEmpty()
@@ -760,6 +765,11 @@ class TvShowViewHolder(
         binding.tvTvShowQuality.apply {
             text = tvShow.quality
             isVisible = !text.isNullOrEmpty()
+        }
+
+        binding.tvTvShowContentRating.apply {
+            text = tvShow.contentRating?.certification
+            isVisible = !text.isNullOrBlank()
         }
 
         binding.tvTvShowReleased.apply {

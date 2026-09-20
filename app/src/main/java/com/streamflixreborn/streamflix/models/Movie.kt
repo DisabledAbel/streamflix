@@ -29,6 +29,7 @@ class Movie(
     @Ignore
     var providerName: String? = null,
 
+
     @Ignore
     val genres: List<Genre> = listOf(),
     @Ignore
@@ -38,6 +39,8 @@ class Movie(
     @Ignore
     val recommendations: List<Show> = listOf(),
     override var isFavorite: Boolean = false,
+    @Ignore
+    var contentRating: ContentRating? = null,
 ) : Show, WatchItem, AppAdapter.Item {
 
     var released = released?.toCalendar()
@@ -88,6 +91,7 @@ class Movie(
         poster: String? = this.poster,
         banner: String? = this.banner,
         imdbId: String? = this.imdbId,
+        contentRating: ContentRating? = this.contentRating,
         genres: List<Genre> = this.genres,
         directors: List<People> = this.directors,
         cast: List<People> = this.cast,
@@ -111,6 +115,7 @@ class Movie(
         cast,
         recommendations,
         isFavorite,
+        contentRating,
     ).apply {
         lastPlayedAtMillis = this@Movie.lastPlayedAtMillis
     }
@@ -131,6 +136,7 @@ class Movie(
         if (poster != other.poster) return false
         if (banner != other.banner) return false
         if (imdbId != other.imdbId) return false
+        if (contentRating != other.contentRating) return false
         if (genres != other.genres) return false
         if (directors != other.directors) return false
         if (cast != other.cast) return false
@@ -158,6 +164,7 @@ class Movie(
         result = 31 * result + (poster?.hashCode() ?: 0)
         result = 31 * result + (banner?.hashCode() ?: 0)
         result = 31 * result + (imdbId?.hashCode() ?: 0)
+        result = 31 * result + (contentRating?.hashCode() ?: 0)
         result = 31 * result + genres.hashCode()
         result = 31 * result + directors.hashCode()
         result = 31 * result + cast.hashCode()

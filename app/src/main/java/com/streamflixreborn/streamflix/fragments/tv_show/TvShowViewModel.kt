@@ -9,6 +9,7 @@ import com.streamflixreborn.streamflix.models.Movie
 import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.utils.ArtworkRepair
+import com.streamflixreborn.streamflix.utils.ContentRatingRepository
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 class TvShowViewModel(
     id: String,
@@ -228,6 +230,13 @@ class TvShowViewModel(
 
         try {
             val tvShow = UserPreferences.currentProvider!!.getTvShow(id)
+            tvShow.contentRating = ContentRatingRepository.providerFirst(tvShow.contentRating) {
+                ContentRatingRepository.series(
+                    tvShow.title,
+                    tvShow.released?.get(Calendar.YEAR),
+                    UserPreferences.currentProvider?.language,
+                )
+            }
 
             if (!ArtworkRepair.isRemoteArtworkUrl(tvShow.poster) && ArtworkRepair.isRemoteArtworkUrl(fallbackPoster)) {
                 tvShow.poster = fallbackPoster

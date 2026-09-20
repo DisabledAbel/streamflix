@@ -760,6 +760,11 @@ class MovieViewHolder(
             }
         }
 
+        binding.tvMovieContentRating.apply {
+            text = movie.contentRating?.certification
+            visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
+        }
+
         binding.tvMovieReleased.apply {
             text = movie.released?.format("yyyy")
             visibility = when {
@@ -889,6 +894,11 @@ class MovieViewHolder(
                 text.isNullOrEmpty() -> View.GONE
                 else -> View.VISIBLE
             }
+        }
+
+        binding.tvMovieContentRating.apply {
+            text = movie.contentRating?.certification
+            visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
         }
 
         binding.tvMovieReleased.apply {

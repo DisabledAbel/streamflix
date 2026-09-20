@@ -43,6 +43,8 @@ class TvShow(
     @Ignore
     val recommendations: List<Show> = listOf(),
     override var isFavorite: Boolean = false,
+    @Ignore
+    var contentRating: ContentRating? = null,
 ) : Show, AppAdapter.Item {
 
     var released = released?.toCalendar()
@@ -119,6 +121,7 @@ class TvShow(
         poster: String? = this.poster,
         banner: String? = this.banner,
         imdbId: String? = this.imdbId,
+        contentRating: ContentRating? = this.contentRating,
         seasons: List<Season> = this.seasons,
         genres: List<Genre> = this.genres,
         directors: List<People> = this.directors,
@@ -144,6 +147,7 @@ class TvShow(
         cast,
         recommendations,
         isFavorite,
+        contentRating,
     ).apply {
         lastPlayedAtMillis = this@TvShow.lastPlayedAtMillis
         lastPlayedEpisodeId = this@TvShow.lastPlayedEpisodeId
@@ -166,6 +170,7 @@ class TvShow(
         if (poster != other.poster) return false
         if (banner != other.banner) return false
         if (imdbId != other.imdbId) return false
+        if (contentRating != other.contentRating) return false
         if (seasons != other.seasons) return false
         if (genres != other.genres) return false
         if (directors != other.directors) return false
@@ -193,6 +198,7 @@ class TvShow(
         result = 31 * result + (poster?.hashCode() ?: 0)
         result = 31 * result + (banner?.hashCode() ?: 0)
         result = 31 * result + (imdbId?.hashCode() ?: 0)
+        result = 31 * result + (contentRating?.hashCode() ?: 0)
         result = 31 * result + seasons.hashCode()
         result = 31 * result + genres.hashCode()
         result = 31 * result + directors.hashCode()
