@@ -3,6 +3,7 @@ package com.streamflixreborn.streamflix.utils
 import android.util.Log
 import com.streamflixreborn.streamflix.models.ContentRating
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
 
 /** Fallback certification source for providers which do not include one in their details model. */
 object ContentRatingRepository {
@@ -12,17 +13,23 @@ object ContentRatingRepository {
     private val missingMovies = ConcurrentHashMap.newKeySet<String>()
     private val missingSeries = ConcurrentHashMap.newKeySet<String>()
 
-    suspend fun movie(title: String, year: Int?, language: String?): ContentRating? = lookup(
-        key = "${title.trim().lowercase()}|${year ?: ""}|${language.orEmpty()}",
-        cache = movieCache,
-        missing = missingMovies,
-    ) { TmdbUtils.getMovieContentRating(title, year, language) }
+    suspend fun movie(title: String, year: Int?, language: String?): ContentRating? {
+        if (!UserPreferences.enableTmdb) return null
+        val key = "${title.trim().lowercase()}|${year ?: ""}|${language.orEmpty()}"
+        missingMovies.remove(key)
+        return lookup(key, movieCache, missingMovies) {
+            TmdbUtils.getMovieContentRating(title, year, language)
+        }
+    }
 
-    suspend fun series(title: String, year: Int?, language: String?): ContentRating? = lookup(
-        key = "${title.trim().lowercase()}|${year ?: ""}|${language.orEmpty()}",
-        cache = seriesCache,
-        missing = missingSeries,
-    ) { TmdbUtils.getTvShowContentRating(title, year, language) }
+    suspend fun series(title: String, year: Int?, language: String?): ContentRating? {
+        if (!UserPreferences.enableTmdb) return null
+        val key = "${title.trim().lowercase()}|${year ?: ""}|${language.orEmpty()}"
+        missingSeries.remove(key)
+        return lookup(key, seriesCache, missingSeries) {
+            TmdbUtils.getTvShowContentRating(title, year, language)
+        }
+    }
 
     suspend fun providerFirst(
         providerRating: ContentRating?,
@@ -44,6 +51,8 @@ object ContentRatingRepository {
             loader().also { rating ->
                 if (rating == null) missing += key else cache[key] = rating
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             // Do not turn a temporary API/transport/parsing failure into a session-long miss.
             onFailure(error)

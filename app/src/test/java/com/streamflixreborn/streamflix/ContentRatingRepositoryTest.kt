@@ -3,9 +3,11 @@ package com.streamflixreborn.streamflix
 import com.streamflixreborn.streamflix.models.ContentRating
 import com.streamflixreborn.streamflix.utils.ContentRatingRepository
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Test
 
 class ContentRatingRepositoryTest {
@@ -50,5 +52,24 @@ class ContentRatingRepositoryTest {
         assertNull(ContentRatingRepository.lookup("series", cache, missing, {}, loader))
         assertNull(ContentRatingRepository.lookup("series", cache, missing, {}, loader))
         assertEquals(1, attempts)
+    }
+
+    @Test
+    fun `cancellation is propagated without being treated as a lookup failure`() = runBlocking {
+        val cache = ConcurrentHashMap<String, ContentRating?>()
+        val missing = ConcurrentHashMap.newKeySet<String>()
+        var failureCalls = 0
+
+        try {
+            ContentRatingRepository.lookup("movie", cache, missing, { failureCalls++ }) {
+                throw CancellationException("cancelled")
+            }
+            fail("Expected cancellation")
+        } catch (_: CancellationException) {
+            // Expected: structured-concurrency cancellation must reach the caller.
+        }
+
+        assertEquals(0, failureCalls)
+        assertEquals(false, "movie" in missing)
     }
 }
