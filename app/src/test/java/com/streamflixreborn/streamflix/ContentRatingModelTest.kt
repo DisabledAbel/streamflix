@@ -3,6 +3,7 @@ package com.streamflixreborn.streamflix
 import com.streamflixreborn.streamflix.models.ContentRating
 import com.streamflixreborn.streamflix.models.Movie
 import com.streamflixreborn.streamflix.models.TvShow
+import com.streamflixreborn.streamflix.adapters.AppAdapter
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
@@ -33,12 +34,24 @@ class ContentRatingModelTest {
 
     @Test
     fun `certification changes model equality for DiffUtil`() {
-        val unratedMovie = Movie(id = "1", title = "Movie")
-        val ratedMovie = unratedMovie.copy(contentRating = ContentRating("PG-13"))
+        val unratedMovie = Movie(id = "1", title = "Movie").apply {
+            itemType = AppAdapter.Type.MOVIE_MOBILE
+        }
+        val copiedMovie = unratedMovie.copy().apply { itemType = AppAdapter.Type.MOVIE_MOBILE }
+        assertEquals(unratedMovie, copiedMovie)
+        val ratedMovie = unratedMovie.copy(contentRating = ContentRating("PG-13")).apply {
+            itemType = AppAdapter.Type.MOVIE_MOBILE
+        }
         assertNotEquals(unratedMovie, ratedMovie)
 
-        val unratedSeries = TvShow(id = "2", title = "Series")
-        val ratedSeries = unratedSeries.copy(contentRating = ContentRating("TV-14"))
+        val unratedSeries = TvShow(id = "2", title = "Series").apply {
+            itemType = AppAdapter.Type.TV_SHOW_MOBILE
+        }
+        val copiedSeries = unratedSeries.copy().apply { itemType = AppAdapter.Type.TV_SHOW_MOBILE }
+        assertEquals(unratedSeries, copiedSeries)
+        val ratedSeries = unratedSeries.copy(contentRating = ContentRating("TV-14")).apply {
+            itemType = AppAdapter.Type.TV_SHOW_MOBILE
+        }
         assertNotEquals(unratedSeries, ratedSeries)
     }
 }
