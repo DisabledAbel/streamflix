@@ -31,16 +31,19 @@ object InterfaceProfileManager {
         val saved = runCatching {
             gson.fromJson<List<InterfaceProfile>>(prefs.getString(PROFILES, null), type)
         }.getOrNull().orEmpty()
-        val legacy = UserPreferences.currentProvider ?: Provider.providers.keys.firstOrNull()
-        val initial = saved.ifEmpty {
-            listOf(InterfaceProfile(
+        val available = Provider.providers.keys.associateBy { it.name }
+        val legacy = UserPreferences.currentProvider?.takeIf { it.name in available }
+            ?: Provider.providers.keys.firstOrNull()
+        val fallback = InterfaceProfile(
                 id = UUID.randomUUID().toString(),
                 name = "Default",
                 enabledProviderNames = listOfNotNull(legacy?.name),
                 providerPriority = listOfNotNull(legacy?.name),
                 defaultProviderName = legacy?.name,
-            ))
-        }
+            )
+        val initial = saved.map { it.normalized(available.keys) }
+            .filter { it.enabledProviderNames.isNotEmpty() }
+            .ifEmpty { listOf(fallback) }
         _profiles.value = initial
         _active.value = initial.firstOrNull { it.id == prefs.getString(ACTIVE, null) } ?: initial.first()
         persist()
@@ -91,8 +94,11 @@ object InterfaceProfileManager {
     fun restoreJson(json: String?): Boolean {
         if (json.isNullOrBlank()) return false
         val type = object : TypeToken<List<InterfaceProfile>>() {}.type
+        val available = Provider.providers.keys.map { it.name }.toSet()
         val restored = runCatching { gson.fromJson<List<InterfaceProfile>>(json, type) }.getOrNull()
             ?.filter { it.id.isNotBlank() && it.name.isNotBlank() && it.enabledProviderNames.isNotEmpty() }
+            ?.map { it.normalized(available) }
+            ?.filter { it.enabledProviderNames.isNotEmpty() }
             .orEmpty()
         if (restored.isEmpty()) return false
         _profiles.value = restored

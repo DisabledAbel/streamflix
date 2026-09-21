@@ -176,7 +176,6 @@ class SettingsMobileFragment : PreferenceFragmentCompat() {
         )
 
         displaySettings()
-        InterfaceProfileSettings.install(this, preferenceScreen)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -226,6 +225,9 @@ class SettingsMobileFragment : PreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.settings_mobile, currentScreenState.rootKey)
         if (::backupRestoreManager.isInitialized) {
             displaySettings()
+        }
+        if (currentScreenState.rootKey == null) {
+            InterfaceProfileSettings.install(this, preferenceScreen)
         }
         applyScreenTitle()
     }

@@ -196,9 +196,19 @@ class BackupRestoreManager(
     suspend fun importUserData(json: String): Boolean {
         return try {
             val obj = JSONObject(json)
-            obj.optJSONArray("interfaceProfiles")?.let { InterfaceProfileManager.restoreJson(it.toString()) }
             val providersArray = obj.optJSONArray("providers") ?: return false
             val backupVersion = obj.optInt("version", 1)
+
+            // Validate before writing anything. In particular, do not activate a profile whose
+            // provider data could not be restored on this installation.
+            val availableProviderNames = providers.map { it.name }.toSet()
+            val hasMissingProviders = (0 until providersArray.length()).any { index ->
+                providersArray.optJSONObject(index)?.optString("name") !in availableProviderNames
+            }
+            if (hasMissingProviders) {
+                Log.w(TAG, "Backup contains providers that are unavailable; import aborted")
+                return false
+            }
 
             Log.d(TAG, "Starting import from version $backupVersion for ${providersArray.length()} providers")
 
@@ -313,6 +323,9 @@ class BackupRestoreManager(
                 buildCacheForProvider(providerCtx)
             }
 
+            // Profiles are committed last so a failed provider import cannot change the active
+            // interface configuration. Old backups simply have no interfaceProfiles member.
+            obj.optJSONArray("interfaceProfiles")?.let { InterfaceProfileManager.restoreJson(it.toString()) }
             Log.d(TAG, "Import completed successfully")
             true
         } catch (t: Throwable) {

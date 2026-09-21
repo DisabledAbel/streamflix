@@ -5,6 +5,7 @@ import android.util.Log
 import com.streamflixreborn.streamflix.adapters.AppAdapter
 import com.streamflixreborn.streamflix.models.Category
 import com.streamflixreborn.streamflix.models.Movie
+import com.streamflixreborn.streamflix.models.Episode
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.providers.Provider
 import com.streamflixreborn.streamflix.utils.ParentalControlUtils
@@ -70,7 +71,11 @@ class MultiProviderRepository(
             shows += data.favoritesTvShows.map { it.toTvShow().apply { providerName = provider.name } }
             watching += data.continueWatchingMovies.map { it.toMovie().apply { providerName = provider.name } }
             // Episodes retain their enclosing show's identity in the cache and are not coalesced by id.
-            watching += data.continueWatchingEpisodes.map { it.toEpisode() }
+            watching += data.continueWatchingEpisodes.map { cached ->
+                cached.toEpisode().apply {
+                    tvShow?.providerName = tvShow?.providerName ?: cached.providerName ?: provider.name
+                }
+            }
         }
         return Library(
             movies.sortedByDescending { it.favoritedAtMillis ?: 0L },
@@ -78,6 +83,7 @@ class MultiProviderRepository(
             watching.sortedByDescending {
                 when (it) {
                     is Movie -> it.watchHistory?.lastEngagementTimeUtcMillis ?: it.lastPlayedAtMillis ?: 0L
+                    is Episode -> it.watchHistory?.lastEngagementTimeUtcMillis ?: 0L
                     else -> 0L
                 }
             },

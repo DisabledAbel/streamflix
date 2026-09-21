@@ -20,6 +20,7 @@ import com.streamflixreborn.streamflix.utils.UserDataCache
 import com.streamflixreborn.streamflix.utils.UserDataCache.toCached
 import com.streamflixreborn.streamflix.utils.UserDataCache.toEpisode
 import com.streamflixreborn.streamflix.utils.UserDataCache.toMovie
+import com.streamflixreborn.streamflix.utils.UserDataCache.toTvShow
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import com.streamflixreborn.streamflix.utils.combine
 import com.streamflixreborn.streamflix.interfaceprofile.InterfaceProfileManager
@@ -104,9 +105,11 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
 
             val seasonIds = allEpisodes.mapNotNull { it.season?.id }.distinct()
 
-            val tvShowsMap = tvShows.associateBy { it.id }
+            // Provider-local ids are not globally unique. Never enrich a combined item from the
+            // default provider database merely because the ids happen to match.
+            val tvShowsMap = if (isCombinedHome()) emptyMap() else tvShows.associateBy { it.id }
 
-            val seasonsMap = if (seasonIds.isEmpty()) {
+            val seasonsMap = if (isCombinedHome() || seasonIds.isEmpty()) {
                 emptyMap()
             } else {
                 database.seasonDao()
@@ -178,10 +181,22 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
             }.flowOn(Dispatchers.IO),
             
             // FAVORITE MOVIES
-            database.movieDao().getFavorites().flowOn(Dispatchers.IO),
+            _userDataCache.transformLatest { cache ->
+                if (InterfaceProfileManager.requireActive().combineFavorites) {
+                    emit(cache?.favoritesMovies.orEmpty().map { it.toMovie() })
+                } else {
+                    emitAll(database.movieDao().getFavorites())
+                }
+            }.flowOn(Dispatchers.IO),
             
             // FAVORITE TV SHOWS
-            database.tvShowDao().getFavorites().flowOn(Dispatchers.IO),
+            _userDataCache.transformLatest { cache ->
+                if (InterfaceProfileManager.requireActive().combineFavorites) {
+                    emit(cache?.favoritesTvShows.orEmpty().map { it.toTvShow() })
+                } else {
+                    emitAll(database.tvShowDao().getFavorites())
+                }
+            }.flowOn(Dispatchers.IO),
 
         ) { continueWatching, recentlyWatched, favoritesMovies, favoriteTvShows ->
             HomeHistory(continueWatching, recentlyWatched, favoritesMovies, favoriteTvShows)
@@ -191,6 +206,10 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
         _state.transformLatest { state ->
             when (state) {
                 is State.SuccessLoading -> {
+                    if (isCombinedHome()) {
+                        emit(emptyList())
+                        return@transformLatest
+                    }
                     val movies = state.categories
                         .flatMap { it.list }
                         .filterIsInstance<Movie>()
@@ -208,6 +227,10 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
         _state.transformLatest { state ->
             when (state) {
                 is State.SuccessLoading -> {
+                    if (isCombinedHome()) {
+                        emit(emptyList())
+                        return@transformLatest
+                    }
                     val tvShows = state.categories
                         .flatMap { it.list }
                         .filterIsInstance<TvShow>()
@@ -350,6 +373,7 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
     }
 
     private suspend fun enrichContinueWatchingEpisodes(episodes: List<Episode>): List<Episode> = coroutineScope {
+        if (isCombinedHome()) return@coroutineScope episodes
         val provider = UserPreferences.currentProvider ?: return@coroutineScope episodes
 
         episodes.map { episode ->
@@ -455,6 +479,9 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
             }
         }
     }
+
+    private fun isCombinedHome(): Boolean = InterfaceProfileManager.requireActive().combineHome &&
+        multiProvider.enabledProviders().size > 1
 
     private fun loadUserDataCache(provider: Provider) {
         val appContext = StreamFlixApp.instance.applicationContext

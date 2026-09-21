@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.transformLatest
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 // DEFINICIONES DE ESTADO Y RESULTADOS (Fuera de la clase para mejor acceso)
 sealed class State {
@@ -56,6 +58,10 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.transformLatest { state ->
             when (state) {
                 is State.SuccessSearching -> {
+                    if (isCombinedSearch()) {
+                        emit(emptyList())
+                        return@transformLatest
+                    }
                     val movies = state.results
                         .filterIsInstance<Movie>()
                     if (movies.isEmpty()) {
@@ -70,6 +76,10 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.transformLatest { state ->
             when (state) {
                 is State.SuccessSearching -> {
+                    if (isCombinedSearch()) {
+                        emit(emptyList())
+                        return@transformLatest
+                    }
                     val tvShows = state.results
                         .filterIsInstance<TvShow>()
                     if (tvShows.isEmpty()) {
@@ -139,9 +149,12 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         if (currentState is State.SuccessSearching) {
             _state.emit(State.SearchingMore)
             try {
-                val results = ParentalControlUtils.filterItems(
-                    UserPreferences.currentProvider!!.search(query, page + 1)
-                )
+                val active = InterfaceProfileManager.requireActive()
+                val results = if (active.combineSearch) {
+                    multiProvider.search(query, page + 1).value
+                } else {
+                    ParentalControlUtils.filterItems(UserPreferences.currentProvider!!.search(query, page + 1))
+                }
                 val existingKeys = currentState.results
                     .asSequence()
                     .map { it.searchIdentityKey() }
@@ -177,6 +190,7 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.emit(State.SuccessGlobalSearching(initialResults))
 
         val mutableResults = initialResults.toMutableList()
+        val resultsMutex = Mutex()
 
         val stateComparator = compareBy<ProviderResult> { providerResult ->
             when (val state = providerResult.state) {
@@ -187,19 +201,25 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         }
 
         targetProviders.forEachIndexed { index, provider -> launch {
-            runCatching { ParentalControlUtils.filterItems(provider.search(query).onEach { item ->
+            val providerResult = runCatching { ParentalControlUtils.filterItems(provider.search(query).onEach { item ->
                 when (item) { is Movie -> item.providerName = provider.name; is TvShow -> item.providerName = provider.name }
             }) }.fold(
-                { mutableResults[index] = ProviderResult(provider, ProviderResult.State.Success(it)) },
-                { Log.e("SearchViewModel", "searchGlobal for ${provider.name}", it); mutableResults[index] = ProviderResult(provider, ProviderResult.State.Error(Exception(it))) }
+                { ProviderResult(provider, ProviderResult.State.Success(it)) },
+                { Log.e("SearchViewModel", "searchGlobal for ${provider.name}", it); ProviderResult(provider, ProviderResult.State.Error(Exception(it))) }
             )
-            _state.emit(State.SuccessGlobalSearching(mutableResults.sortedWith(stateComparator)))
+            resultsMutex.withLock {
+                mutableResults[index] = providerResult
+                _state.emit(State.SuccessGlobalSearching(mutableResults.sortedWith(stateComparator)))
+            }
         } }
     }
+
+    private fun isCombinedSearch(): Boolean = InterfaceProfileManager.requireActive().combineSearch &&
+        multiProvider.enabledProviders().size > 1
 }
 
 private fun AppAdapter.Item.searchIdentityKey(): String = when (this) {
-    is Movie -> "movie:$id"
-    is TvShow -> "tvshow:$id"
+    is Movie -> "${providerName.orEmpty()}:movie:$id"
+    is TvShow -> "${providerName.orEmpty()}:tvshow:$id"
     else -> "${this::class.java.name}:${hashCode()}"
 }

@@ -178,7 +178,6 @@ class SettingsTvFragment : LeanbackPreferenceFragmentCompat() {
         )
 
         displaySettings()
-        InterfaceProfileSettings.install(this, preferenceScreen)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -223,6 +222,9 @@ class SettingsTvFragment : LeanbackPreferenceFragmentCompat() {
         setPreferencesFromResource(R.xml.settings_tv, currentScreenState.rootKey)
         if (::backupRestoreManager.isInitialized) {
             displaySettings()
+        }
+        if (currentScreenState.rootKey == null) {
+            InterfaceProfileSettings.install(this, preferenceScreen)
         }
         applyScreenTitle()
         view?.post { listView?.requestFocus() }
