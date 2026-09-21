@@ -22,6 +22,8 @@ import com.streamflixreborn.streamflix.utils.UserDataCache.toEpisode
 import com.streamflixreborn.streamflix.utils.UserDataCache.toMovie
 import com.streamflixreborn.streamflix.utils.UserPreferences
 import com.streamflixreborn.streamflix.utils.combine
+import com.streamflixreborn.streamflix.interfaceprofile.InterfaceProfileManager
+import com.streamflixreborn.streamflix.interfaceprofile.MultiProviderRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -38,6 +40,7 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 
 class HomeViewModel(database: AppDatabase) : ViewModel() {
+    private val multiProvider = MultiProviderRepository(StreamFlixApp.instance.applicationContext)
 
     private data class HomeHistory(
         val continueWatching: List<AppAdapter.Item>,
@@ -335,6 +338,7 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
                 getHome()
             }
         }
+        viewModelScope.launch { InterfaceProfileManager.changes.collect { getHome() } }
 
         viewModelScope.launch {
             UserDataNotifier.updates.collect {
@@ -408,6 +412,24 @@ class HomeViewModel(database: AppDatabase) : ViewModel() {
 
         currentProvider = provider
         val appContext = StreamFlixApp.instance.applicationContext
+        val interfaceProfile = InterfaceProfileManager.requireActive()
+        if (interfaceProfile.combineHome && multiProvider.enabledProviders().size > 1) {
+            _state.emit(State.Loading)
+            val library = multiProvider.getLibrary()
+            _userDataCache.value = UserDataCache.UserData(
+                favoritesMovies = if (interfaceProfile.combineFavorites) library.favoriteMovies.map { it.toCached() } else emptyList(),
+                favoritesTvShows = if (interfaceProfile.combineFavorites) library.favoriteTvShows.map { it.toCached() } else emptyList(),
+                continueWatchingMovies = if (interfaceProfile.combineContinueWatching) library.continueWatching.filterIsInstance<Movie>().map { it.toCached() } else emptyList(),
+                continueWatchingEpisodes = if (interfaceProfile.combineContinueWatching) library.continueWatching.filterIsInstance<Episode>().map { it.toCached() } else emptyList(),
+            )
+            val combined = multiProvider.getHome()
+            if (combined.value.isNotEmpty()) {
+                _state.emit(State.SuccessLoading(combined.value))
+            } else {
+                _state.emit(State.FailedLoading(IllegalStateException("All enabled providers failed")))
+            }
+            return@launch
+        }
         val cachedCategories = HomeCacheStore.read(appContext, provider)
         val deferCachedHomeForClearance =
                 provider === AnimeOnlineNinjaProvider &&

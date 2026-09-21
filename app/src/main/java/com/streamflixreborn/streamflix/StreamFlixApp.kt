@@ -18,6 +18,7 @@ import com.streamflixreborn.streamflix.utils.CacheUtils
 import com.streamflixreborn.streamflix.utils.DnsResolver
 import com.streamflixreborn.streamflix.utils.IsrgRootTrustProvider
 import com.streamflixreborn.streamflix.utils.UserPreferences
+import com.streamflixreborn.streamflix.interfaceprofile.InterfaceProfileManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -77,6 +78,7 @@ class StreamFlixApp : Application() {
 
         // 2. Inizializzazione preferenze (con applicationContext)
         UserPreferences.setup(this)
+        InterfaceProfileManager.initialize(this)
         DnsResolver.setDnsUrl(UserPreferences.dohProviderUrl)
 
         val appContext = applicationContext

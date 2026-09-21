@@ -14,6 +14,7 @@ import com.streamflixreborn.streamflix.models.Season
 import com.streamflixreborn.streamflix.models.TvShow
 import com.streamflixreborn.streamflix.models.WatchItem
 import com.streamflixreborn.streamflix.providers.Provider
+import com.streamflixreborn.streamflix.interfaceprofile.InterfaceProfileManager
 import com.streamflixreborn.streamflix.utils.UserDataCache
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
@@ -82,7 +83,7 @@ class BackupRestoreManager(
     fun exportUserData(): String? {
         return try {
             val root = JSONObject()
-            root.put("version", 5)
+            root.put("version", 6)
             root.put("exportedAt", System.currentTimeMillis())
 
             val providersArray = JSONArray()
@@ -180,6 +181,7 @@ class BackupRestoreManager(
             }
 
             root.put("providers", providersArray)
+            root.put("interfaceProfiles", JSONArray(InterfaceProfileManager.exportJson()))
             Log.d(TAG, "Export successful for version 5. Total providers exported: ${providersArray.length()}")
             root.toString()
         } catch (t: Throwable) {
@@ -194,6 +196,7 @@ class BackupRestoreManager(
     suspend fun importUserData(json: String): Boolean {
         return try {
             val obj = JSONObject(json)
+            obj.optJSONArray("interfaceProfiles")?.let { InterfaceProfileManager.restoreJson(it.toString()) }
             val providersArray = obj.optJSONArray("providers") ?: return false
             val backupVersion = obj.optInt("version", 1)
 

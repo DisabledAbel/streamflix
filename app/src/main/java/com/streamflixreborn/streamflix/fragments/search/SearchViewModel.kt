@@ -11,6 +11,9 @@ import com.streamflixreborn.streamflix.providers.IptvProvider
 import com.streamflixreborn.streamflix.providers.Provider
 import com.streamflixreborn.streamflix.utils.ParentalControlUtils
 import com.streamflixreborn.streamflix.utils.UserPreferences
+import com.streamflixreborn.streamflix.StreamFlixApp
+import com.streamflixreborn.streamflix.interfaceprofile.InterfaceProfileManager
+import com.streamflixreborn.streamflix.interfaceprofile.MultiProviderRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +47,7 @@ data class ProviderResult(
 
 
 class SearchViewModel(database: AppDatabase) : ViewModel() {
+    private val multiProvider = MultiProviderRepository(StreamFlixApp.instance.applicationContext)
 
     private val _state = MutableStateFlow<State>(State.Searching)
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -115,7 +119,12 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.emit(State.Searching)
 
         try {
-            val results = ParentalControlUtils.filterItems(UserPreferences.currentProvider!!.search(query))
+            val active = InterfaceProfileManager.requireActive()
+            val results = if (active.combineSearch) {
+                multiProvider.search(query).value
+            } else {
+                ParentalControlUtils.filterItems(UserPreferences.currentProvider!!.search(query))
+            }
             this@SearchViewModel.query = query
             page = 1
             _state.emit(State.SuccessSearching(results, results.isNotEmpty()))
@@ -155,11 +164,7 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
     // FUNCIÓN DE BÚSQUEDA GLOBAL AÑADIDA
     fun searchGlobal(query: String, currentLanguage: String) = viewModelScope.launch(Dispatchers.IO) {
         _state.emit(State.GlobalSearching)
-
-        val isCurrentProviderIptv = UserPreferences.currentProvider is IptvProvider
-        val targetProviders = Provider.providers.keys
-            .filter { it.language == currentLanguage && (it is IptvProvider) == isCurrentProviderIptv }
-            .toList()
+        val targetProviders = multiProvider.enabledProviders()
 
         if (targetProviders.isEmpty()) {
             _state.emit(State.SuccessGlobalSearching(emptyList()))
@@ -181,27 +186,15 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
             }
         }
 
-        targetProviders.forEachIndexed { index, provider ->
-            launch {
-                try {
-                    val results = ParentalControlUtils.filterItems(provider.search(query).onEach { item ->
-                        // ========= ¡AQUÍ ESTÁ LA MAGIA! =========
-                        // Le ponemos el sello a cada resultado
-                        when (item) {
-                            is Movie -> item.providerName = provider.name
-                            is TvShow -> item.providerName = provider.name
-                        }
-                        // =======================================
-                    })
-                    mutableResults[index] = ProviderResult(provider, ProviderResult.State.Success(results))
-                } catch (e: Exception) {
-                    Log.e("SearchViewModel", "searchGlobal for ${provider.name}: ", e)
-                    mutableResults[index] = ProviderResult(provider, ProviderResult.State.Error(e))
-                }
-
-                _state.emit(State.SuccessGlobalSearching(mutableResults.sortedWith(stateComparator)))
-            }
-        }
+        targetProviders.forEachIndexed { index, provider -> launch {
+            runCatching { ParentalControlUtils.filterItems(provider.search(query).onEach { item ->
+                when (item) { is Movie -> item.providerName = provider.name; is TvShow -> item.providerName = provider.name }
+            }) }.fold(
+                { mutableResults[index] = ProviderResult(provider, ProviderResult.State.Success(it)) },
+                { Log.e("SearchViewModel", "searchGlobal for ${provider.name}", it); mutableResults[index] = ProviderResult(provider, ProviderResult.State.Error(Exception(it))) }
+            )
+            _state.emit(State.SuccessGlobalSearching(mutableResults.sortedWith(stateComparator)))
+        } }
     }
 }
 

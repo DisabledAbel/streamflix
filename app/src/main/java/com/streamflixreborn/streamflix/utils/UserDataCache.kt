@@ -349,6 +349,7 @@ object UserDataCache {
 
     data class CachedMovie(
         val id: String,
+        val providerName: String? = null,
         val title: String,
         val overview: String? = null,
         val released: String? = null,
@@ -368,6 +369,7 @@ object UserDataCache {
 
     data class CachedTvShow(
         val id: String,
+        val providerName: String? = null,
         val title: String,
         val overview: String? = null,
         val released: String? = null,
@@ -383,6 +385,7 @@ object UserDataCache {
 
     data class CachedEpisode(
         val id: String,
+        val providerName: String? = null,
         val number: Int,
         val title: String? = null,
         val released: String? = null,
@@ -405,6 +408,7 @@ object UserDataCache {
 
     fun CachedMovie.toMovie() = Movie(
         id = id,
+        providerName = providerName,
         title = title,
         overview = overview,
         released = released,
@@ -429,6 +433,7 @@ object UserDataCache {
 
     fun CachedTvShow.toTvShow() = TvShow(
         id = id,
+        providerName = providerName,
         title = title,
         overview = overview,
         released = released,
@@ -465,7 +470,7 @@ object UserDataCache {
                 title = this@toEpisode.tvShowTitle.orEmpty(),
                 poster = this@toEpisode.tvShowPoster,
                 banner = this@toEpisode.tvShowBanner,
-            )
+            ).apply { providerName = this@toEpisode.providerName }
         }
         season = this@toEpisode.seasonId?.let {
             Season(
@@ -478,6 +483,7 @@ object UserDataCache {
     }
     fun Movie.toCached() = UserDataCache.CachedMovie(
         id = id,
+        providerName = providerName,
         title = title,
         overview = overview,
         released = released?.format("yyyy-MM-dd"),
@@ -496,6 +502,7 @@ object UserDataCache {
     )
     fun TvShow.toCached() = UserDataCache.CachedTvShow(
         id = id,
+        providerName = providerName,
         title = title,
         overview = overview,
         released = released?.format("yyyy-MM-dd"),
@@ -510,6 +517,7 @@ object UserDataCache {
     )
     fun Episode.toCached() = UserDataCache.CachedEpisode(
         id = id,
+        providerName = tvShow?.providerName,
         number = number,
         title = title,
         released = released?.format("yyyy-MM-dd"),

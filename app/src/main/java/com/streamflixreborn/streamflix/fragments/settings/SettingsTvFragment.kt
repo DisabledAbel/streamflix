@@ -177,8 +177,8 @@ class SettingsTvFragment : LeanbackPreferenceFragmentCompat() {
             }
         )
 
-
         displaySettings()
+        InterfaceProfileSettings.install(this, preferenceScreen)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

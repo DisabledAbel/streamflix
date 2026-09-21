@@ -176,6 +176,7 @@ class SettingsMobileFragment : PreferenceFragmentCompat() {
         )
 
         displaySettings()
+        InterfaceProfileSettings.install(this, preferenceScreen)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
