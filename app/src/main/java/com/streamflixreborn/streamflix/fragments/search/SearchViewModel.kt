@@ -58,7 +58,7 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.transformLatest { state ->
             when (state) {
                 is State.SuccessSearching -> {
-                    if (isCombinedSearch()) {
+                    if (combineSearchEnabled()) {
                         emit(emptyList())
                         return@transformLatest
                     }
@@ -76,7 +76,7 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.transformLatest { state ->
             when (state) {
                 is State.SuccessSearching -> {
-                    if (isCombinedSearch()) {
+                    if (combineSearchEnabled()) {
                         emit(emptyList())
                         return@transformLatest
                     }
@@ -129,8 +129,7 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         _state.emit(State.Searching)
 
         try {
-            val active = InterfaceProfileManager.requireActive()
-            val results = if (active.combineSearch) {
+            val results = if (combineSearchEnabled()) {
                 multiProvider.search(query).value
             } else {
                 ParentalControlUtils.filterItems(UserPreferences.currentProvider!!.search(query))
@@ -149,8 +148,7 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         if (currentState is State.SuccessSearching) {
             _state.emit(State.SearchingMore)
             try {
-                val active = InterfaceProfileManager.requireActive()
-                val results = if (active.combineSearch) {
+                val results = if (combineSearchEnabled()) {
                     multiProvider.search(query, page + 1).value
                 } else {
                     ParentalControlUtils.filterItems(UserPreferences.currentProvider!!.search(query, page + 1))
@@ -214,8 +212,8 @@ class SearchViewModel(database: AppDatabase) : ViewModel() {
         } }
     }
 
-    private fun isCombinedSearch(): Boolean = InterfaceProfileManager.requireActive().combineSearch &&
-        multiProvider.enabledProviders().size > 1
+    /** One predicate controls fetching, pagination, and provider-local DB enrichment. */
+    private fun combineSearchEnabled(): Boolean = InterfaceProfileManager.requireActive().combineSearch
 }
 
 private fun AppAdapter.Item.searchIdentityKey(): String = when (this) {
