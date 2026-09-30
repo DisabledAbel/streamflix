@@ -89,7 +89,7 @@ Install [Android Studio](https://developer.android.com/studio)
 1. Clone the project to your local machine
 
 ```bash
-git clone https://github.com/streamflix-reborn2/streamflix.git
+git clone https://github.com/BLACKBOXandroid/streamflix.git
 ```
 
 2. Open the project in Android Studio
